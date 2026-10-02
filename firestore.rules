@@ -45,15 +45,16 @@ service cloud.firestore {
     }
 
     function validDevice(d) {
-      return d.keys().hasOnly(['stockId', 'model', 'storage', 'color', 'imei', 'condition', 'batteryBought', 'batterySold', 'source', 'purchasePrice', 'purchasedAt',
+      return d.keys().hasOnly(['stockId', 'model', 'storage', 'color', 'imageUrl', 'imei', 'condition', 'batteryBought', 'batterySold', 'source', 'purchasePrice', 'purchasedAt',
                                'status', 'parts', 'platform', 'salePrice', 'soldAt', 'saleFees', 'shippingCost', 'notes'])
         && reqStr(d, 'model', 200)
         && reqMoney(d, 'purchasePrice')
         && isDate(d, 'purchasedAt')
-        && d.status in ['Acquired', 'In repair', 'Ready', 'Listed', 'Sold']
+        && d.status in ['Acquired', 'In repair', 'Ready', 'Listed', 'Awaiting handover', 'Sold', 'Handed over']
         && optMoney(d, 'salePrice') && optMoney(d, 'saleFees') && optMoney(d, 'shippingCost')
         && optIsDate(d, 'soldAt')
         && optStr(d, 'notes', 5000) && optStr(d, 'imei', 100) && optStr(d, 'stockId', 20)
+        && (!('imageUrl' in d) || d.imageUrl == '' || (d.imageUrl is string && d.imageUrl.matches('^https://cache[.]willhaben[.]at/.{1,500}$')))
         && optPct(d, 'batteryBought') && optPct(d, 'batterySold')
         && partLines(d);
     }
@@ -127,6 +128,10 @@ service cloud.firestore {
         && request.resource.data.admin is bool
         && !(entry == email() && request.resource.data.admin == false);
       allow delete: if isAdmin() && entry != email();
+    }
+    // Server-side import quota only; clients cannot reset it.
+    match /importQuotas/{uid} {
+      allow read, write: if false;
     }
   }
 }

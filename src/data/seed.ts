@@ -21,14 +21,14 @@ export function buildSeed(newId: () => string): Op[] {
   add("parts", { name: "iPhone 11 back glass", category: "Back glass", compatible: "iPhone 11", qtyOnHand: 4, unitCost: 9, lowStock: 1 });
 
   const devices: [string, number, number, string, number | null, number | null, { partId: string; name: string; unitCost: number; qty: number }[]][] = [
-    ["iPhone 13 128GB", 210, 170, "Sold", 399, 142, [{ partId: screen13, name: "iPhone 13 OLED screen", unitCost: 62, qty: 1 }]],
-    ["iPhone 12 64GB", 150, 150, "Sold", 289, 128, [{ partId: batt12, name: "iPhone 12 battery", unitCost: 18, qty: 1 }]],
-    ["Galaxy S21 128GB", 140, 120, "Sold", 245, 105, [{ partId: s21port, name: "Galaxy S21 USB-C port", unitCost: 7.5, qty: 1 }]],
-    ["iPhone 13 128GB", 230, 95, "Sold", 419, 71, []],
-    ["iPhone 11 64GB", 110, 80, "Sold", 199, 62, []],
-    ["Pixel 7 128GB", 160, 60, "Sold", 269, 41, []],
-    ["iPhone 12 64GB", 145, 45, "Sold", 279, 20, []],
-    ["iPhone 14 128GB", 330, 30, "Sold", 499, 9, []],
+    ["iPhone 13 128GB", 210, 170, "Handed over", 399, 142, [{ partId: screen13, name: "iPhone 13 OLED screen", unitCost: 62, qty: 1 }]],
+    ["iPhone 12 64GB", 150, 150, "Handed over", 289, 128, [{ partId: batt12, name: "iPhone 12 battery", unitCost: 18, qty: 1 }]],
+    ["Galaxy S21 128GB", 140, 120, "Handed over", 245, 105, [{ partId: s21port, name: "Galaxy S21 USB-C port", unitCost: 7.5, qty: 1 }]],
+    ["iPhone 13 128GB", 230, 95, "Handed over", 419, 71, []],
+    ["iPhone 11 64GB", 110, 80, "Handed over", 199, 62, []],
+    ["Pixel 7 128GB", 160, 60, "Handed over", 269, 41, []],
+    ["iPhone 12 64GB", 145, 45, "Handed over", 279, 20, []],
+    ["iPhone 14 128GB", 330, 30, "Awaiting handover", 499, 9, []],
     ["Galaxy S22 256GB", 190, 21, "Listed", null, null, []],
     ["iPhone 13 mini", 175, 14, "Ready", null, null, [{ partId: screen13, name: "iPhone 13 OLED screen", unitCost: 62, qty: 1 }]],
     ["iPhone 12 Pro 128GB", 220, 6, "In repair", null, null, []],

@@ -30,6 +30,8 @@ jobs:
 
       - run: npm ci
 
+      - run: npm ci --prefix functions
+
       - name: Build
         run: npm run build
         env:
@@ -44,5 +46,15 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
-      - name: Deploy hosting and Firestore rules
+      # Enable only after Blaze billing, IAM roles and a manual Actions deploy have been verified.
+      - name: Prepare Hosting without the optional import function
+        if: vars.ENABLE_WILLHABEN_FUNCTION != 'true'
+        run: node -e 'const fs = require("node:fs"); const config = JSON.parse(fs.readFileSync("firebase.json")); config.hosting.rewrites = config.hosting.rewrites.filter((r) => !r.function); delete config.functions; fs.writeFileSync("firebase.json", JSON.stringify(config));'
+
+      - name: Deploy hosting and rules
+        if: vars.ENABLE_WILLHABEN_FUNCTION != 'true'
         run: npx --yes firebase-tools@latest deploy --only hosting,firestore:rules --non-interactive
+
+      - name: Deploy function, hosting and rules
+        if: vars.ENABLE_WILLHABEN_FUNCTION == 'true'
+        run: npx --yes firebase-tools@latest deploy --only functions,hosting,firestore:rules --non-interactive

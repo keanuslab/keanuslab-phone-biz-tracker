@@ -1,17 +1,18 @@
 import type { Device, Expense, Part, PartLine, Repair } from "./types";
 import { daysBetween, isoDate, num, today } from "./format";
 import { groupLabel, modelKey } from "./models";
+import { isSoldStatus } from "./status";
 
 export const partsCost = (lines: PartLine[] = []) => lines.reduce((s, p) => s + num(p.unitCost) * (num(p.qty) || 1), 0);
 export const deviceCost = (d: Device) => num(d.purchasePrice) + partsCost(d.parts);
 export const deviceProfit = (d: Device) =>
-  d.status === "Sold" ? num(d.salePrice) - num(d.saleFees) - num(d.shippingCost) - deviceCost(d) : null;
+  isSoldStatus(d.status) ? num(d.salePrice) - num(d.saleFees) - num(d.shippingCost) - deviceCost(d) : null;
 
 export const isRepairDone = (r: Repair) => r.status === "Done" || r.status === "Collected";
 export const repairDate = (r: Repair) => r.completedAt || r.date;
 export const repairProfit = (r: Repair) => num(r.charged) - partsCost(r.parts);
 
-export const daysInStock = (d: Device) => daysBetween(d.purchasedAt, d.status === "Sold" && d.soldAt ? d.soldAt : today());
+export const daysInStock = (d: Device) => daysBetween(d.purchasedAt, isSoldStatus(d.status) && d.soldAt ? d.soldAt : today());
 
 // Parts purchases are inventory; their cost is counted when a part is used on a device/repair.
 export const INVENTORY_EXPENSE_CATEGORY = "Parts stock";
@@ -54,7 +55,7 @@ export interface Data {
 }
 
 export function summarize(data: Data, r: Range) {
-  const sold = data.devices.filter((d) => d.status === "Sold" && inRange(d.soldAt, r));
+  const sold = data.devices.filter((d) => isSoldStatus(d.status) && inRange(d.soldAt, r));
   const repairs = data.repairs.filter((x) => isRepairDone(x) && inRange(repairDate(x), r));
   const expenses = data.expenses.filter((x) => inRange(x.date, r));
 
@@ -100,7 +101,7 @@ export function monthlySeries(data: Data, months = 12, endOffset = 0) {
 export const pctChange = (cur: number, prev: number) => (prev === 0 ? null : ((cur - prev) / Math.abs(prev)) * 100);
 
 export function avgDaysToSell(devices: Device[]) {
-  const timed = devices.filter((d) => d.status === "Sold" && d.purchasedAt && d.soldAt);
+  const timed = devices.filter((d) => isSoldStatus(d.status) && d.purchasedAt && d.soldAt);
   if (!timed.length) return null;
   return Math.round(timed.reduce((s, d) => s + daysBetween(d.purchasedAt, d.soldAt!), 0) / timed.length);
 }
@@ -108,7 +109,7 @@ export function avgDaysToSell(devices: Device[]) {
 export function topModels(devices: Device[], limit = 6) {
   const byModel = new Map<string, { names: string[]; count: number; profit: number; days: number[] }>();
   for (const d of devices) {
-    if (d.status !== "Sold") continue;
+    if (!isSoldStatus(d.status)) continue;
     const key = modelKey(d.model);
     const m = byModel.get(key) ?? { names: [], count: 0, profit: 0, days: [] };
     m.names.push(d.model.trim());

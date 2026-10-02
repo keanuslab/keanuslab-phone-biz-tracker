@@ -5,6 +5,7 @@ import { db } from "../lib/firebase";
 import { setCurrency, num, today } from "../lib/format";
 import { buildSeed } from "./seed";
 import { nextStockIds } from "../lib/stockId";
+import { isSoldStatus } from "../lib/status";
 import {
   COLLECTIONS,
   DEFAULT_SETTINGS,
@@ -114,7 +115,7 @@ function createActions(backend: Backend, state: State) {
       const prev = rec.id ? state.devices.find((d) => d.id === rec.id) : undefined;
       const data = withId(rec);
       data.stockId = rec.stockId || prev?.stockId || nextStockIds(state.devices, 1)[0];
-      if (data.status === "Sold" && !data.soldAt) data.soldAt = today();
+      if (isSoldStatus(data.status) && !data.soldAt) data.soldAt = today();
       await backend.commit([{ type: "set", col: "devices", id: data.id, data }, ...stockOps(prev?.parts ?? [], data.parts, state.parts)]);
       return data;
     },

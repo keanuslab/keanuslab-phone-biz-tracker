@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router";
 import { KanbanSquare, Link2, Plus, Rows3, Smartphone } from "lucide-react";
 import { useData } from "../data/store";
 import { useEditors } from "../components/editors";
@@ -8,7 +9,7 @@ import { Kanban } from "../components/Kanban";
 import { Badge, Button, Card, Chips, EmptyState, PageHeader, Profit, SearchInput, Segmented } from "../components/ui";
 import { daysInStock, deviceCost, deviceProfit } from "../lib/calc";
 import { fmt, fmtDate } from "../lib/format";
-import { deviceTone } from "../lib/status";
+import { deviceTone, isSoldStatus } from "../lib/status";
 import { DEVICE_STATUSES, type Device, type DeviceStatus } from "../lib/types";
 import { usePersistentState } from "../lib/usePersistentState";
 import { stockNumber } from "../lib/stockId";
@@ -30,7 +31,8 @@ export function Inventory() {
     );
   }, [devices, q, status, view]);
 
-  const inStock = devices.filter((d) => d.status !== "Sold");
+  const inStock = devices.filter((d) => !isSoldStatus(d.status));
+  const awaitingHandover = devices.filter((d) => d.status === "Awaiting handover").length;
 
   const columns: Column<Device>[] = [
     { key: "stockId", header: "ID", sort: (d) => stockNumber(d.stockId), render: (d) => <span className="font-mono text-xs text-zinc-500">{d.stockId ?? "—"}</span> },
@@ -39,9 +41,12 @@ export function Inventory() {
       header: "Device",
       sort: (d) => d.model.toLowerCase(),
       render: (d) => (
-        <div>
+        <div className="flex items-center gap-3">
+          {d.imageUrl && <img src={d.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-11 shrink-0 rounded-lg object-cover" />}
+          <div>
           <div className="font-medium">{d.model}</div>
           <div className="text-xs text-zinc-500">{[d.storage, d.color, d.condition].filter(Boolean).join(" · ") || d.imei || "—"}</div>
+          </div>
         </div>
       ),
     },
@@ -68,7 +73,7 @@ export function Inventory() {
   ];
 
   const move = async (d: Device, to: DeviceStatus) => {
-    if (to === "Sold") return open({ kind: "device", record: d, preset: { status: "Sold" } });
+    if (isSoldStatus(to) && !isSoldStatus(d.status)) return open({ kind: "device", record: d, preset: { status: to } });
     let saved: Device | undefined;
     const ok = await run(async () => {
       saved = await saveDevice({ ...d, status: to });
@@ -80,7 +85,7 @@ export function Inventory() {
     <>
       <PageHeader
         title="Inventory"
-        subtitle={`${inStock.length} in stock · ${fmt(inStock.reduce((s, d) => s + deviceCost(d), 0))} invested`}
+        subtitle={`${inStock.length} in stock · ${fmt(inStock.reduce((s, d) => s + deviceCost(d), 0))} invested · ${awaitingHandover} awaiting handover`}
         actions={
           <>
             <Segmented
@@ -94,6 +99,7 @@ export function Inventory() {
             <Button variant="secondary" onClick={() => open({ kind: "willhaben" })}>
               <Link2 /> willhaben
             </Button>
+            <Link to="/deal-check" className="label-mono inline-flex h-10 items-center justify-center gap-2 rounded-full bg-white px-5 font-bold ring-1 ring-inset ring-zinc-300 hover:ring-zinc-900 dark:bg-black dark:ring-zinc-700 dark:hover:ring-zinc-300">Deal check</Link>
             <Button onClick={() => open({ kind: "device" })}>
               <Plus /> Add device
             </Button>
@@ -131,19 +137,20 @@ export function Inventory() {
           tones={deviceTone}
           onMove={move}
           onOpen={(d) => open({ kind: "device", record: d })}
-          columnMeta={(s, items) => (s === "Sold" ? null : items.length ? fmt(items.reduce((sum, d) => sum + deviceCost(d), 0)) : null)}
+          columnMeta={(s, items) => (isSoldStatus(s) ? null : items.length ? fmt(items.reduce((sum, d) => sum + deviceCost(d), 0)) : null)}
           renderCard={(d) => (
             <div className="space-y-2">
+              {d.imageUrl && <img src={d.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-28 w-full rounded-lg object-cover" />}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">{d.model}</div>
                   <div className="truncate text-xs text-zinc-500">{[d.storage, d.color].filter(Boolean).join(" · ") || d.condition}</div>
                 </div>
-                {d.status === "Sold" ? <Profit value={deviceProfit(d)} /> : <span className="text-sm tabular">{fmt(deviceCost(d))}</span>}
+                {isSoldStatus(d.status) ? <Profit value={deviceProfit(d)} /> : <span className="text-sm tabular">{fmt(deviceCost(d))}</span>}
               </div>
               <div className="flex items-center justify-between text-xs text-zinc-500">
                 <span className="font-mono">{d.stockId}</span>
-                <span>{daysInStock(d)}d {d.status === "Sold" ? "to sell" : "in stock"}</span>
+                <span>{daysInStock(d)}d {isSoldStatus(d.status) ? "to sell" : "in stock"}</span>
                 {d.parts.length > 0 && <span>{d.parts.length} part{d.parts.length > 1 ? "s" : ""}</span>}
               </div>
             </div>

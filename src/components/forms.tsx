@@ -9,6 +9,7 @@ import { useData } from "../data/store";
 import { partsCost } from "../lib/calc";
 import { cx, fmt, num, today } from "../lib/format";
 import { STORAGE_OPTIONS, canonicalModel, modelKey, modelSuggestions } from "../lib/models";
+import { isSoldStatus } from "../lib/status";
 import {
   CONDITIONS,
   DEVICE_STATUSES,
@@ -107,6 +108,7 @@ export function DeviceForm({ device, preset, onClose }: { device?: Device; prese
     model: src.model ?? "",
     storage: src.storage ?? "",
     color: src.color ?? "",
+    imageUrl: src.imageUrl ?? "",
     imei: src.imei ?? "",
     condition: src.condition ?? CONDITIONS[1],
     batteryBought: str(src.batteryBought),
@@ -117,7 +119,7 @@ export function DeviceForm({ device, preset, onClose }: { device?: Device; prese
     status: src.status ?? "Acquired",
     platform: src.platform ?? "",
     salePrice: str(src.salePrice),
-    soldAt: src.soldAt ?? (src.status === "Sold" ? today() : ""),
+    soldAt: src.soldAt ?? (src.status && isSoldStatus(src.status) ? today() : ""),
     saleFees: str(src.saleFees),
     shippingCost: str(src.shippingCost),
     notes: src.notes ?? "",
@@ -125,14 +127,14 @@ export function DeviceForm({ device, preset, onClose }: { device?: Device; prese
   });
   const [saving, setSaving] = useState(false);
   const del = useDeleteFlow("device", onClose);
-  const showSale = d.status === "Sold" || d.status === "Listed";
+  const showSale = isSoldStatus(d.status) || d.status === "Listed";
   const cost = num(d.purchasePrice) + partsCost(fromDraftLines(d.parts));
   const profit = num(d.salePrice) - num(d.saleFees) - num(d.shippingCost) - cost;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const sold = d.status === "Sold";
+    const sold = isSoldStatus(d.status);
     let saved: Device | undefined;
     const ok = await run(
       async () => {
@@ -142,6 +144,7 @@ export function DeviceForm({ device, preset, onClose }: { device?: Device; prese
           model: canonicalModel(d.model, models.used),
           storage: canonicalStorage(d.storage),
           color: d.color.trim(),
+          imageUrl: d.imageUrl.trim(),
           imei: d.imei.trim(),
           condition: d.condition,
           batteryBought: optPct(d.batteryBought),
@@ -168,7 +171,7 @@ export function DeviceForm({ device, preset, onClose }: { device?: Device; prese
   };
 
   const listingButton =
-    device && device.status !== "Sold" ? (
+    device && !isSoldStatus(device.status) ? (
       <Button variant="ghost" onClick={() => openEditor({ kind: "listing", record: device })} title="Generate ad text from the saved device">
         <FileText /> Listing text
       </Button>
@@ -178,6 +181,12 @@ export function DeviceForm({ device, preset, onClose }: { device?: Device; prese
     <Modal open onClose={onClose} wide title={device ? `Edit ${device.stockId ?? "device"}` : "Add device"} footer={<FormFooter formId="device-form" onClose={onClose} saving={saving} onDelete={device && (() => del(() => data.deleteDevice(device)))} extra={listingButton} />}>
       <form id="device-form" onSubmit={submit} className="divide-y divide-zinc-100 dark:divide-zinc-800">
         <Section title="Device">
+          {d.imageUrl && (
+            <div className="mb-4 flex items-center gap-4">
+              <img src={d.imageUrl} alt={`${d.model || "Imported device"} listing`} className="size-28 rounded-xl border border-zinc-200 object-cover dark:border-zinc-800" referrerPolicy="no-referrer" />
+              <span className="text-xs text-zinc-500">Image from the willhaben listing</span>
+            </div>
+          )}
           <Grid>
             <Field label="Model *" className="sm:col-span-2">{(id) => <Combobox id={id} required autoFocus placeholder="Start typing, e.g. 13 pro" value={d.model} onChange={(v) => set("model", v)} onCommit={(v) => set("model", canonicalModel(v, models.used))} suggestions={models.suggestions} />}</Field>
             <Field label="Storage">{(id) => <Combobox id={id} placeholder="128GB" value={d.storage} onChange={(v) => set("storage", v)} onCommit={(v) => set("storage", canonicalStorage(v))} suggestions={storageSuggestions} />}</Field>
@@ -202,9 +211,9 @@ export function DeviceForm({ device, preset, onClose }: { device?: Device; prese
         {showSale && (
           <Section title="Sale">
             <Grid>
-              <Field label={d.status === "Sold" ? "Sale price *" : "Listing price"}>{(id) => <Input id={id} required={d.status === "Sold"} type="number" inputMode="decimal" min="0" step="0.01" value={d.salePrice} onChange={(e) => set("salePrice", e.target.value)} />}</Field>
+              <Field label={isSoldStatus(d.status) ? "Sale price *" : "Listing price"}>{(id) => <Input id={id} required={isSoldStatus(d.status)} type="number" inputMode="decimal" min="0" step="0.01" value={d.salePrice} onChange={(e) => set("salePrice", e.target.value)} />}</Field>
               <Field label="Platform">{(id) => <Input id={id} placeholder="eBay, Back Market…" value={d.platform} onChange={(e) => set("platform", e.target.value)} />}</Field>
-              {d.status === "Sold" && (
+              {isSoldStatus(d.status) && (
                 <>
                   <Field label="Sale date">{(id) => <Input id={id} type="date" value={d.soldAt} onChange={(e) => set("soldAt", e.target.value)} />}</Field>
                   <Field label="Platform fees">{(id) => <Input id={id} type="number" inputMode="decimal" min="0" step="0.01" value={d.saleFees} onChange={(e) => set("saleFees", e.target.value)} />}</Field>
@@ -220,7 +229,7 @@ export function DeviceForm({ device, preset, onClose }: { device?: Device; prese
         <SummaryBar
           items={[
             ["Total cost", fmt(cost)],
-            [d.status === "Sold" ? "Profit" : "Expected profit", d.salePrice ? profitText(profit) : "—"],
+            [isSoldStatus(d.status) ? "Profit" : "Expected profit", d.salePrice ? profitText(profit) : "—"],
             ["Margin", d.salePrice && num(d.salePrice) > 0 ? `${Math.round((profit / num(d.salePrice)) * 100)}%` : "—"],
           ]}
         />

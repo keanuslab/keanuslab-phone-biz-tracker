@@ -17,6 +17,7 @@ export const csvFields: Record<CollectionName, FieldDef[]> = {
     { key: "model", type: "string", required: true },
     { key: "storage", type: "string" },
     { key: "color", type: "string" },
+    { key: "imageUrl", type: "string" },
     { key: "imei", type: "string" },
     { key: "condition", type: "string" },
     { key: "batteryBought", type: "optNumber" },

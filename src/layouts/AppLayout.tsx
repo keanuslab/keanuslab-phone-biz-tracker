@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet } from "react-router";
-import { Boxes, LayoutDashboard, Link2, LogOut, Moon, Plus, Receipt, Settings, Smartphone, Sun, Wrench, type LucideIcon } from "lucide-react";
+import { Boxes, Calculator, LayoutDashboard, Link2, LogOut, Moon, Plus, Receipt, Settings, Smartphone, Sun, Wrench, type LucideIcon } from "lucide-react";
 import { useAuth } from "../data/auth";
 import { useData } from "../data/store";
 import { useEditors } from "../components/editors";
@@ -12,6 +12,7 @@ import { isLowStock } from "../lib/calc";
 const nav: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/inventory", label: "Inventory", icon: Smartphone },
+  { to: "/deal-check", label: "Deal check", icon: Calculator },
   { to: "/repairs", label: "Repairs", icon: Wrench },
   { to: "/parts", label: "Parts", icon: Boxes },
   { to: "/expenses", label: "Expenses", icon: Receipt },
@@ -153,7 +154,7 @@ export function AppLayout() {
         <Outlet />
       </main>
 
-      <nav className={cx(bar, "fixed inset-x-3 bottom-3 z-30 grid grid-cols-5 p-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))] lg:hidden")}>
+      <nav className={cx(bar, "fixed inset-x-3 bottom-3 z-30 grid grid-cols-6 p-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))] lg:hidden")}>
         {nav.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}

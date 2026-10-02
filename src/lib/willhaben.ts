@@ -19,7 +19,7 @@ export function parseWillhabenUrl(input: string): URL | null {
   try {
     const url = new URL(input.trim());
     const host = url.hostname.toLowerCase();
-    if (url.protocol !== "https:" || !(host === "willhaben.at" || host.endsWith(".willhaben.at"))) return null;
+    if (url.protocol !== "https:" || !(host === "willhaben.at" || host === "www.willhaben.at") || !/^\/iad\/kaufen-und-verkaufen\/d\/[a-z0-9-]+-\d{5,}\/?$/i.test(url.pathname)) return null;
     url.search = "";
     url.hash = "";
     return url;
@@ -76,7 +76,12 @@ function parseStorage(text: string) {
 function parseCondition(text: string, adOnly: string) {
   if (word("defekt|kaputt|gebrochen|broken|f(ü|ue)r bastler").test(adOnly)) return CONDITIONS[3];
   const z = text.match(/Zustand\s*:?\s*(neu(wertig)?|wie neu|sehr gut|gut|gebraucht)/i)?.[1]?.toLowerCase();
-  if (!z) return undefined;
+  if (!z) {
+    if (/neuwertig|wie neu|ungeöffnet|originalverpackt/i.test(adOnly)) return CONDITIONS[0];
+    if (/sehr gut(?:er|em|en|e)?\s+Zustand|Zustand\s+(?:ist\s+)?sehr gut/i.test(adOnly)) return CONDITIONS[1];
+    if (/gut(?:er|em|en|e)?\s+Zustand|Zustand\s+(?:ist\s+)?gut/i.test(adOnly)) return CONDITIONS[2];
+    return undefined;
+  }
   if (z.startsWith("neu") || z === "wie neu") return CONDITIONS[0];
   return CONDITIONS[1];
 }

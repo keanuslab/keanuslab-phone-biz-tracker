@@ -11,6 +11,7 @@ import { Inventory } from "./pages/Inventory";
 import { Repairs } from "./pages/Repairs";
 import { Parts } from "./pages/Parts";
 import { Expenses } from "./pages/Expenses";
+import { DealCheck } from "./pages/DealCheck";
 
 const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
 const SettingsPage = lazy(() => import("./pages/Settings").then((m) => ({ default: m.SettingsPage })));
@@ -42,6 +43,7 @@ function SignedInApp() {
         <Route element={<AppLayout />}>
           <Route index element={<Suspense fallback={null}><Dashboard /></Suspense>} />
           <Route path="inventory" element={<Inventory />} />
+          <Route path="deal-check" element={<DealCheck />} />
           <Route path="repairs" element={<Repairs />} />
           <Route path="parts" element={<Parts />} />
           <Route path="expenses" element={<Expenses />} />

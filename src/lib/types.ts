@@ -1,4 +1,4 @@
-export const DEVICE_STATUSES = ["Acquired", "In repair", "Ready", "Listed", "Sold"] as const;
+export const DEVICE_STATUSES = ["Acquired", "In repair", "Ready", "Listed", "Awaiting handover", "Sold", "Handed over"] as const;
 export const REPAIR_STATUSES = ["Intake", "Diagnosing", "Waiting parts", "In progress", "Done", "Collected"] as const;
 export const CONDITIONS = ["A — Like new", "B — Good", "C — Fair", "Faulty"] as const;
 export const EXPENSE_CATEGORIES = ["Parts stock", "Tools", "Shipping supplies", "Fees & subscriptions", "Advertising", "Rent & utilities", "Other"] as const;
@@ -21,6 +21,7 @@ export interface Device {
   model: string;
   storage?: string;
   color?: string;
+  imageUrl?: string;
   imei?: string;
   condition?: string;
   batteryBought?: number | null;

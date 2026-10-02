@@ -23,6 +23,7 @@ import {
 import { cx, fmt, fmtCompact, fmtPct } from "../lib/format";
 import { useTheme } from "../lib/theme";
 import { groupLabel } from "../lib/models";
+import { isSoldStatus } from "../lib/status";
 
 const palette = (dark: boolean) => {
   const ink = dark ? "#f2f2f2" : "#1a1a1a";
@@ -123,7 +124,8 @@ export function Dashboard() {
       .slice(0, 6);
   }, [data]);
 
-  const stock = data.devices.filter((d) => d.status !== "Sold");
+  const stock = data.devices.filter((d) => !isSoldStatus(d.status));
+  const handover = data.devices.filter((d) => d.status === "Awaiting handover");
   const stale = stock.filter((d) => daysInStock(d) > 30).sort((a, b) => daysInStock(b) - daysInStock(a));
   const low = data.parts.filter(isLowStock);
   const pickup = data.repairs.filter((r) => r.status === "Done");
@@ -145,6 +147,7 @@ export function Dashboard() {
   const attention: { icon: ReactNode; text: string; to: string; tone: string }[] = [
     ...low.map((p) => ({ icon: <PackageX />, text: `${p.name} — ${p.qtyOnHand} left`, to: "/parts", tone: "text-amber-500" })),
     ...pickup.map((r) => ({ icon: <Wrench />, text: `${r.customer}'s ${r.device} is ready for pickup`, to: "/repairs", tone: "text-emerald-500" })),
+    ...handover.map((d) => ({ icon: <Clock />, text: `${d.model} (${d.stockId ?? "device"}) is sold and awaiting handover`, to: "/inventory", tone: "text-emerald-500" })),
     ...waitingParts.map((r) => ({ icon: <Clock />, text: `${r.device} for ${r.customer} is waiting on parts`, to: "/repairs", tone: "text-violet-500" })),
     ...stale.map((d) => ({ icon: <AlertTriangle />, text: `${d.model} unsold for ${daysInStock(d)} days`, to: "/inventory", tone: "text-signal" })),
   ].slice(0, 6);

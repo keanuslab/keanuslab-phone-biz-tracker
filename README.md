@@ -8,13 +8,14 @@ Built with React and Firebase, deployed on Firebase Hosting. The design is inspi
 
 ## Features
 
-- **Inventory**: every phone gets a stock ID (`PB-0001`, …). Track purchase price, parts used, sale price, fees and shipping to see real profit per device. Table view or drag-and-drop board (Acquired → In repair → Ready → Listed → Sold).
+- **Inventory**: every phone gets a stock ID (`PB-0001`, …). Track purchase price, parts used, sale price, fees and shipping to see real profit per device. Table view or drag-and-drop board (Acquired → In repair → Ready → Listed → Awaiting handover → Sold / Handed over). Existing `Sold` records remain completed sales; only the new `Awaiting handover` status appears in handover alerts. All three sale statuses count toward sales.
 - **Repairs**: customer jobs from intake to collection, with parts and profit per job.
 - **Parts stock**: parts used on a device or repair are deducted automatically; restocking updates the average unit cost. Low-stock alerts.
 - **Expenses**: by category and month. Parts purchases are treated as inventory, so they're only counted once, when the part is used.
 - **Dashboard**: net profit, revenue, flip vs. repair profit, comparison with the previous period, 12-month charts, best models to flip, most used parts, and a "needs attention" list.
 - **Monthly goals**: set targets (net profit, revenue, devices sold, repairs) and see when you're expected to hit them, based on your last 30 days.
-- **willhaben import**: paste a willhaben.at ad link and text to pre-fill a new device (model, storage, colour, condition, price, battery health).
+- **willhaben import**: paste an ad link to load its details automatically when the optional import function is enabled. Paste the ad text if automatic loading is unavailable or the site markup changes. The imported image URL depends on willhaben keeping the image online.
+- **Deal check**: analyze a willhaben listing before buying, suggest repairs from stated faults, price compatible parts from your stock catalogue, and estimate resale profit from comparable completed sales. Missing part or resale prices require manual estimates.
 - **Model catalogue**: typeahead with current iPhone, Samsung, Pixel, Xiaomi and OnePlus models, so names stay consistent and stats group correctly.
 - **CSV import/export**, **dark mode**, and a **demo mode** with sample data stored only in the browser.
 
@@ -27,7 +28,7 @@ Built with React and Firebase, deployed on Firebase Hosting. The design is inspi
 | Backend | Firebase Authentication (Google), Cloud Firestore |
 | Hosting / CI | Firebase Hosting, GitHub Actions |
 
-There is no custom server: the app talks to Firestore directly, and **`firestore.rules` is the security boundary**.
+Device data goes directly to Firestore, and **`firestore.rules` is the security boundary**. An optional Firebase Cloud Function retrieves public willhaben listing pages for approved signed-in users. It allows at most 20 requests per user per hour and spaces requests at least three seconds apart.
 
 ## Security model
 
@@ -38,10 +39,11 @@ There is no custom server: the app talks to Firestore directly, and **`firestore
 
 ## Getting started
 
-Requirements: Node.js 24+ and a Firebase project with **Authentication (Google provider)** and **Cloud Firestore** enabled.
+Requirements: Node.js 24+ and a Firebase project with **Authentication (Google provider)** and **Cloud Firestore** enabled. Deploying the willhaben import function also requires the Firebase **Blaze** plan.
 
 ```bash
 npm install
+npm ci --prefix functions
 cp .env.example .env.local   # then fill in your Firebase web app config
 npm run dev                  # http://localhost:5173
 ```
@@ -60,11 +62,13 @@ Firestore → collection **`allowlist`** → document ID = your Google email in 
 | `npm run dev` | Start the dev server |
 | `npm run build` | Type-check and build to `dist/` |
 | `npm run preview` | Serve the production build locally |
-| `npm run deploy` | Build and deploy hosting + Firestore rules from your machine |
+| `npm run deploy` | Build and deploy hosting, Firestore rules and the import function (requires Blaze and Functions deployment access) |
 
 ## Deployment
 
-Every push to `main` is deployed automatically by [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) (site and Firestore rules). It needs, in the GitHub repo settings under **Secrets and variables → Actions**:
+Every pull request runs the [build check](.github/workflows/check.yml). Every push to `main` runs [the deploy workflow](.github/workflows/deploy.yml). By default, it deploys Hosting and Firestore rules with automatic willhaben loading disabled; the paste-text import remains available. This keeps the existing deployment service account within its Hosting/Firestore scope.
+
+To enable automatic loading, first confirm the Firebase project is on Blaze and grant the deploy service account the permissions required for second-generation Cloud Functions and its build, Cloud Run, and artifact resources. Then set the Actions variable `ENABLE_WILLHABEN_FUNCTION=true`, run the deployment workflow manually, and confirm that its function and Hosting steps succeed before relying on automatic loading. The current repository does not establish that billing, permissions or a Functions deploy have succeeded. In GitHub repo settings under **Secrets and variables → Actions**, configure:
 
 - **Secret** `FIREBASE_SERVICE_ACCOUNT`: JSON key of a service account with the roles Firebase Hosting Admin, Firebase Rules Admin, Service Usage Consumer and Firebase Viewer.
 - **Variables** `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`.
