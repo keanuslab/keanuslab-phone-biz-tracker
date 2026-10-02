@@ -5,6 +5,7 @@ import { db } from "../lib/firebase";
 import { setCurrency, num, today } from "../lib/format";
 import { buildSeed } from "./seed";
 import { nextStockIds } from "../lib/stockId";
+import { applyOrderLine, type OrderLine } from "../lib/partsOrder";
 import {
   COLLECTIONS,
   DEFAULT_SETTINGS,
@@ -158,6 +159,27 @@ function createActions(backend: Backend, state: State) {
           data: { date, category: "Parts stock", description: `Restock: ${qty}× ${p.name}`, amount: Math.round(qty * unitCost * 100) / 100 },
         });
       }
+      await backend.commit(ops);
+    },
+    async receivePartsOrder(lines: OrderLine[], date: string, reference: string, logExpense: boolean) {
+      if (!lines.length || lines.length > 100) throw new Error("Import between 1 and 100 order lines.");
+      const updated = new Map<string, Part>();
+      let total = 0;
+      for (const line of lines) {
+        const qty = Number(line.qty);
+        const cost = Number(line.unitCost);
+        if (!line.name.trim() || !line.qty.trim() || !line.unitCost.trim() || !Number.isInteger(qty) || qty < 1 || !Number.isFinite(cost) || cost < 0) {
+          throw new Error("Each line needs a name, whole quantity and nonnegative unit cost.");
+        }
+        const id = line.partId || backend.newId();
+        const existing = updated.get(id) ?? state.parts.find((part) => part.id === id);
+        if (line.partId && !existing) throw new Error("A selected shelf part no longer exists.");
+        const part = existing ?? { id, name: line.name.trim(), category: line.category, compatible: line.compatible.trim(), qtyOnHand: 0, unitCost: 0, lowStock: 2 };
+        updated.set(id, applyOrderLine(part, qty, cost));
+        total += qty * cost;
+      }
+      const ops: Op[] = [...updated.values()].map((part) => ({ type: "set", col: "parts", id: part.id, data: { ...part } }));
+      if (logExpense) ops.push({ type: "set", col: "expenses", id: backend.newId(), data: { date, category: "Parts stock", description: `Order: ${reference}`.slice(0, 500), amount: Math.round(total * 100) / 100 } });
       await backend.commit(ops);
     },
     async saveSettings(settings: Settings) {

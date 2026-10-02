@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, Boxes, PackagePlus, Plus } from "lucide-react";
+import { AlertTriangle, Boxes, FileUp, PackagePlus, Plus } from "lucide-react";
+import { PartsOrderImport } from "../components/PartsOrderImport";
 import { useData } from "../data/store";
 import { useEditors } from "../components/editors";
 import { DataTable, type Column } from "../components/DataTable";
@@ -13,6 +14,7 @@ export function Parts() {
   const open = useEditors();
   const [q, setQ] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
+  const [importOrder, setImportOrder] = useState(false);
 
   const usage = useMemo(() => partsUsage({ devices, repairs }), [devices, repairs]);
   const low = parts.filter(isLowStock);
@@ -70,9 +72,12 @@ export function Parts() {
         title="Parts stock"
         subtitle={`${parts.length} parts · ${fmt(stockValue)} on the shelf`}
         actions={
+          <>
+          <Button variant="secondary" onClick={() => setImportOrder(true)}><FileUp /> Import order</Button>
           <Button onClick={() => open({ kind: "part" })}>
             <Plus /> Add part
           </Button>
+          </>
         }
       />
 
@@ -111,6 +116,7 @@ export function Parts() {
           }
         />
       </Card>
+      {importOrder && <PartsOrderImport onClose={() => setImportOrder(false)} />}
     </>
   );
 }
