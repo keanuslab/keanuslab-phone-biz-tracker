@@ -17,6 +17,7 @@ import {
   REPAIR_STATUSES,
   type Device,
   type Expense,
+  type Investment,
   type Part,
   type Repair,
 } from "../lib/types";
@@ -350,6 +351,70 @@ export function ExpenseForm({ expense, onClose }: { expense?: Expense; onClose()
         >
           {(id) => <Select id={id} options={EXPENSE_CATEGORIES} value={x.category} onChange={(e) => set("category", e.target.value)} />}
         </Field>
+      </form>
+    </Modal>
+  );
+}
+
+export function InvestmentForm({ investment, onClose }: { investment?: Investment; onClose(): void }) {
+  const data = useData();
+  const { run, confirm } = useFeedback();
+  const [draft, set] = useDraft({
+    investor: investment?.investor ?? "",
+    contact: investment?.contact ?? "",
+    amount: str(investment?.amount),
+    receivedAt: investment?.receivedAt ?? today(),
+    promisedReturn: str(investment?.promisedReturn),
+    dueAt: investment?.dueAt ?? "",
+    repaidAmount: str(investment?.repaidAmount ?? 0),
+    repaidAt: investment?.repaidAt ?? "",
+    notes: investment?.notes ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    const ok = await run(() => data.saveInvestment({
+      ...draft,
+      id: investment?.id,
+      investor: draft.investor.trim(),
+      contact: draft.contact.trim(),
+      amount: Number(draft.amount),
+      promisedReturn: Number(draft.promisedReturn),
+      repaidAmount: Number(draft.repaidAmount),
+      repaidAt: num(draft.repaidAmount) > 0 ? draft.repaidAt : "",
+      notes: draft.notes.trim(),
+    }), investment ? "Investment updated" : "Investment added");
+    setSaving(false);
+    if (ok) onClose();
+  };
+  const onDelete = investment && (async () => {
+    if (await confirm({ title: "Delete investment?", text: "The investment and its repayment details will be permanently removed.", confirmLabel: "Delete", danger: true })) {
+      if (await run(() => data.deleteInvestment(investment), "Investment deleted")) onClose();
+    }
+  });
+
+  return (
+    <Modal open onClose={onClose} title={investment ? "Edit investment" : "Add investment"} footer={<FormFooter formId="investment-form" onClose={onClose} saving={saving} onDelete={onDelete} />}>
+      <form id="investment-form" onSubmit={submit} className="space-y-3 py-2">
+        <Grid>
+          <Field label="Investor *">{(id) => <Input id={id} required autoFocus maxLength={200} value={draft.investor} onChange={(event) => set("investor", event.target.value)} />}</Field>
+          <Field label="Contact">{(id) => <Input id={id} maxLength={200} value={draft.contact} onChange={(event) => set("contact", event.target.value)} />}</Field>
+          <Field label="Amount received *">{(id) => <Input id={id} required type="number" inputMode="decimal" min="0.01" step="0.01" value={draft.amount} onChange={(event) => set("amount", event.target.value)} />}</Field>
+          <Field label="Received date *">{(id) => <Input id={id} required type="date" value={draft.receivedAt} onChange={(event) => set("receivedAt", event.target.value)} />}</Field>
+          <Field label="Total repayment promised (incl. principal) *">{(id) => <Input id={id} required type="number" inputMode="decimal" min={num(draft.amount) || 0.01} step="0.01" value={draft.promisedReturn} onChange={(event) => set("promisedReturn", event.target.value)} />}</Field>
+          <Field label="Repayment deadline *">{(id) => <Input id={id} required type="date" min={draft.receivedAt} value={draft.dueAt} onChange={(event) => set("dueAt", event.target.value)} />}</Field>
+          <Field label="Total repaid">{(id) => <Input id={id} required type="number" inputMode="decimal" min="0" max={num(draft.promisedReturn)} step="0.01" value={draft.repaidAmount} onChange={(event) => {
+            set("repaidAmount", event.target.value);
+            if (num(event.target.value) > 0 && !draft.repaidAt) set("repaidAt", today());
+          }} />}</Field>
+          <Field label="Last repayment date">{(id) => <Input id={id} required={num(draft.repaidAmount) > 0} disabled={num(draft.repaidAmount) === 0} type="date" min={draft.receivedAt} value={draft.repaidAt} onChange={(event) => set("repaidAt", event.target.value)} />}</Field>
+        </Grid>
+        <Field label="Notes">{(id) => <Textarea id={id} maxLength={5000} value={draft.notes} onChange={(event) => set("notes", event.target.value)} />}</Field>
+        <SummaryBar items={[
+          ["Investor profit", fmt(num(draft.promisedReturn) - num(draft.amount))],
+          ["Outstanding", fmt(Math.max(0, num(draft.promisedReturn) - num(draft.repaidAmount)))],
+        ]} />
       </form>
     </Modal>
   );

@@ -6,6 +6,7 @@ import { setCurrency, num, today } from "../lib/format";
 import { buildSeed } from "./seed";
 import { nextStockIds } from "../lib/stockId";
 import { applyOrderLine, type OrderLine } from "../lib/partsOrder";
+import { validateInvestment } from "../lib/investments";
 import {
   COLLECTIONS,
   DEFAULT_SETTINGS,
@@ -15,6 +16,7 @@ import {
   type Collections,
   type Device,
   type Expense,
+  type Investment,
   type Part,
   type PartLine,
   type Repair,
@@ -56,6 +58,15 @@ const normalize = {
     };
   },
   expenses: (d: DocData): Expense => ({ ...(withoutLegacy(d) as unknown as Expense), amount: num(d.amount) }),
+  investments: (d: DocData): Investment => ({
+    ...(d as unknown as Investment),
+    amount: num(d.amount),
+    promisedReturn: num(d.promisedReturn),
+    repaidAmount: num(d.repaidAmount),
+    contact: String(d.contact ?? ""),
+    repaidAt: String(d.repaidAt ?? ""),
+    notes: String(d.notes ?? ""),
+  }),
   parts: (d: DocData): Part => ({
     ...(d as unknown as Part),
     qtyOnHand: num(d.qtyOnHand),
@@ -77,12 +88,12 @@ function stockOps(prev: PartLine[], next: PartLine[], parts: Part[]): Op[] {
 type State = { [K in CollectionName]: Collections[K][] } & { settings: Settings };
 
 function useDataState(backend: Backend | null) {
-  const [state, setState] = useState<State>({ devices: [], repairs: [], expenses: [], parts: [], settings: DEFAULT_SETTINGS });
+  const [state, setState] = useState<State>({ devices: [], repairs: [], expenses: [], parts: [], investments: [], settings: DEFAULT_SETTINGS });
   const [loaded, setLoaded] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setState({ devices: [], repairs: [], expenses: [], parts: [], settings: DEFAULT_SETTINGS });
+    setState({ devices: [], repairs: [], expenses: [], parts: [], investments: [], settings: DEFAULT_SETTINGS });
     setLoaded(new Set());
     if (!backend) return;
     const markLoaded = (col: string) => setLoaded((s) => (s.has(col) ? s : new Set(s).add(col)));
@@ -140,6 +151,15 @@ function createActions(backend: Backend, state: State) {
     async deleteExpense(x: Expense) {
       await backend.commit([{ type: "delete", col: "expenses", id: x.id }]);
     },
+    async saveInvestment(rec: New<Investment>) {
+      const data = withId(rec);
+      validateInvestment(data);
+      if (data.repaidAmount === 0) data.repaidAt = "";
+      await backend.commit([{ type: "set", col: "investments", id: data.id, data }]);
+    },
+    async deleteInvestment(investment: Investment) {
+      await backend.commit([{ type: "delete", col: "investments", id: investment.id }]);
+    },
     async savePart(rec: New<Part>) {
       const data = withId(rec);
       await backend.commit([{ type: "set", col: "parts", id: data.id, data }]);
@@ -186,6 +206,14 @@ function createActions(backend: Backend, state: State) {
       await backend.commit([{ type: "set", col: "meta", id: "settings", data: { ...settings } }]);
     },
     async importRecords(col: CollectionName, docs: DocData[]) {
+      if (col === "investments") {
+        docs = docs.map((doc) => {
+          const investment = normalize.investments(doc);
+          validateInvestment(investment);
+          if (investment.repaidAmount === 0) investment.repaidAt = "";
+          return { ...investment };
+        });
+      }
       if (col === "devices") {
         const taken = new Set(state.devices.map((d) => d.stockId).filter(Boolean));
         const assigned: Pick<Device, "stockId">[] = [...state.devices];

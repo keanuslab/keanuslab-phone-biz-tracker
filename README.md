@@ -12,6 +12,7 @@ Built with React and Firebase, deployed on Firebase Hosting. The design is inspi
 - **Repairs**: customer jobs from intake to collection, with parts and profit per job.
 - **Parts stock**: parts used on a device or repair are deducted automatically; restocking updates the average unit cost. Low-stock alerts.
 - **Expenses**: by category and month. Parts purchases are treated as inventory, so they're only counted once, when the part is used.
+- **Investments**: investor funding, total repayment promised (including principal), deadlines, partial repayments, and overdue balances. Funding and repayments are tracked separately from operating profit. Update the total repaid and last repayment date as payments are made; individual payment history is not stored.
 - **Dashboard**: net profit, revenue, flip vs. repair profit, comparison with the previous period, 12-month charts, best models to flip, most used parts, and a "needs attention" list.
 - **Monthly goals**: set targets (net profit, revenue, devices sold, repairs) and see when you're expected to hit them, based on your last 30 days.
 - **willhaben import**: paste a willhaben.at ad link and text to pre-fill a new device (model, storage, colour, condition, price, battery health).
@@ -75,7 +76,7 @@ Changes to `main` go through pull requests.
 
 ```
 src/
-  pages/        Dashboard, Inventory, Repairs, Parts, Expenses, Settings, Landing
+  pages/        Dashboard, Inventory, Repairs, Parts, Expenses, Investments, Settings, Landing
   components/   UI kit, forms, data table, kanban board, goals, importers
   data/         auth, Firestore / local-demo backends, data store, sample data
   lib/          calculations, goals, CSV, model catalogue, willhaben parser, types

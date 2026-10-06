@@ -11,7 +11,7 @@ import { GOAL_METRICS } from "../lib/goals";
 import { num } from "../lib/format";
 import { COLLECTIONS, CURRENCIES, type CollectionName, type GoalMetric } from "../lib/types";
 
-const labels: Record<CollectionName, string> = { devices: "Inventory", repairs: "Repairs", expenses: "Expenses", parts: "Parts stock" };
+const labels: Record<CollectionName, string> = { devices: "Inventory", repairs: "Repairs", expenses: "Expenses", parts: "Parts stock", investments: "Investments" };
 const metricKeys = Object.keys(GOAL_METRICS) as GoalMetric[];
 
 function Section({ id, title, text, children }: { id?: string; title: string; text: string; children: ReactNode }) {

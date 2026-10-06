@@ -59,6 +59,17 @@ export const csvFields: Record<CollectionName, FieldDef[]> = {
     { key: "unitCost", type: "number" },
     { key: "lowStock", type: "number" },
   ],
+  investments: [
+    { key: "investor", type: "string", required: true },
+    { key: "contact", type: "string" },
+    { key: "amount", type: "number", required: true },
+    { key: "receivedAt", type: "date", required: true },
+    { key: "promisedReturn", type: "number", required: true },
+    { key: "dueAt", type: "date", required: true },
+    { key: "repaidAmount", type: "number" },
+    { key: "repaidAt", type: "date" },
+    { key: "notes", type: "string" },
+  ],
 };
 
 export function exportCsv(col: CollectionName, rows: object[]) {

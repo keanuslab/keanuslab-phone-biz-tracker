@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet } from "react-router";
-import { Boxes, LayoutDashboard, Link2, LogOut, Moon, Plus, Receipt, Settings, Smartphone, Sun, Wrench, type LucideIcon } from "lucide-react";
+import { Boxes, HandCoins, LayoutDashboard, Link2, LogOut, Moon, Plus, Receipt, Settings, Smartphone, Sun, Wrench, type LucideIcon } from "lucide-react";
 import { useAuth } from "../data/auth";
 import { useData } from "../data/store";
 import { useEditors } from "../components/editors";
@@ -15,6 +15,7 @@ const nav: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/repairs", label: "Repairs", icon: Wrench },
   { to: "/parts", label: "Parts", icon: Boxes },
   { to: "/expenses", label: "Expenses", icon: Receipt },
+  { to: "/investments", label: "Investments", icon: HandCoins },
 ];
 
 export function Logo({ className }: { className?: string }) {
@@ -48,6 +49,7 @@ function NewMenu({ compact }: { compact?: boolean }) {
     ["From willhaben", Link2, () => openEditor({ kind: "willhaben" })],
     ["Repair job", Wrench, () => openEditor({ kind: "repair" })],
     ["Expense", Receipt, () => openEditor({ kind: "expense" })],
+    ["Investment", HandCoins, () => openEditor({ kind: "investment" })],
     ["Part", Boxes, () => openEditor({ kind: "part" })],
   ];
 
@@ -100,8 +102,8 @@ export function AppLayout() {
 
   return (
     <div className="min-h-dvh">
-      <header className="sticky top-3 z-30 mx-auto mt-3 w-[calc(100%-1.5rem)] max-w-5xl">
-        <div className={cx(bar, "flex h-12 items-center justify-between gap-3 px-4")}>
+      <header className="sticky top-3 z-30 mx-auto mt-3 w-[calc(100%-1.5rem)] max-w-6xl">
+        <div className={cx(bar, "flex h-12 items-center justify-between gap-1 px-2 sm:gap-3 sm:px-4")}>
           <NavLink to="/" aria-label="Dashboard">
             <Logo />
           </NavLink>
@@ -114,7 +116,7 @@ export function AppLayout() {
                 end={to === "/"}
                 className={({ isActive }) =>
                   cx(
-                    "label-mono relative rounded-full px-3 py-1.5 transition-colors",
+                    "label-mono relative rounded-full px-2 py-1.5 transition-colors",
                     isActive ? "bg-zinc-900 text-white dark:bg-white dark:text-black" : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100",
                   )
                 }
@@ -153,21 +155,22 @@ export function AppLayout() {
         <Outlet />
       </main>
 
-      <nav className={cx(bar, "fixed inset-x-3 bottom-3 z-30 grid grid-cols-5 p-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))] lg:hidden")}>
+      <nav className={cx(bar, "fixed inset-x-3 bottom-3 z-30 grid grid-cols-6 p-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))] lg:hidden")}>
         {nav.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
             end={to === "/"}
+            aria-label={label}
             className={({ isActive }) =>
               cx(
-                "relative flex flex-col items-center gap-1 rounded-xl py-2 font-mono text-[9px] tracking-wider uppercase transition-colors",
+                "relative flex min-w-0 flex-col items-center gap-1 rounded-xl py-2 font-mono text-[8px] uppercase transition-colors sm:text-[9px]",
                 isActive ? "bg-zinc-900 text-white dark:bg-white dark:text-black" : "text-zinc-400",
               )
             }
           >
             <Icon className="size-[18px]" />
-            {label}
+            {to === "/investments" ? "Investors" : label}
             {to === "/parts" && lowStock > 0 && <span className="absolute top-2 left-1/2 ml-2 size-1.5 rounded-full bg-amber-400" />}
           </NavLink>
         ))}
