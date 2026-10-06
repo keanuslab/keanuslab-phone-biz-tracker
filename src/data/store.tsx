@@ -6,7 +6,7 @@ import { setCurrency, num, today } from "../lib/format";
 import { buildSeed } from "./seed";
 import { nextStockIds } from "../lib/stockId";
 import { applyOrderLine, type OrderLine } from "../lib/partsOrder";
-import { validateInvestment } from "../lib/investments";
+import { validateInvestment, validateInvestmentPayment } from "../lib/investments";
 import {
   COLLECTIONS,
   DEFAULT_SETTINGS,
@@ -17,6 +17,7 @@ import {
   type Device,
   type Expense,
   type Investment,
+  type InvestmentPayment,
   type Part,
   type PartLine,
   type Repair,
@@ -67,6 +68,13 @@ const normalize = {
     repaidAt: String(d.repaidAt ?? ""),
     notes: String(d.notes ?? ""),
   }),
+  investmentPayments: (d: DocData): InvestmentPayment => ({
+    ...(d as unknown as InvestmentPayment),
+    investmentId: String(d.investmentId ?? ""),
+    date: String(d.date ?? ""),
+    amount: num(d.amount),
+    note: String(d.note ?? ""),
+  }),
   parts: (d: DocData): Part => ({
     ...(d as unknown as Part),
     qtyOnHand: num(d.qtyOnHand),
@@ -88,12 +96,12 @@ function stockOps(prev: PartLine[], next: PartLine[], parts: Part[]): Op[] {
 type State = { [K in CollectionName]: Collections[K][] } & { settings: Settings };
 
 function useDataState(backend: Backend | null) {
-  const [state, setState] = useState<State>({ devices: [], repairs: [], expenses: [], parts: [], investments: [], settings: DEFAULT_SETTINGS });
+  const [state, setState] = useState<State>({ devices: [], repairs: [], expenses: [], parts: [], investments: [], investmentPayments: [], settings: DEFAULT_SETTINGS });
   const [loaded, setLoaded] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setState({ devices: [], repairs: [], expenses: [], parts: [], investments: [], settings: DEFAULT_SETTINGS });
+    setState({ devices: [], repairs: [], expenses: [], parts: [], investments: [], investmentPayments: [], settings: DEFAULT_SETTINGS });
     setLoaded(new Set());
     if (!backend) return;
     const markLoaded = (col: string) => setLoaded((s) => (s.has(col) ? s : new Set(s).add(col)));
@@ -158,7 +166,22 @@ function createActions(backend: Backend, state: State) {
       await backend.commit([{ type: "set", col: "investments", id: data.id, data }]);
     },
     async deleteInvestment(investment: Investment) {
-      await backend.commit([{ type: "delete", col: "investments", id: investment.id }]);
+      await backend.commit([
+        { type: "delete", col: "investments", id: investment.id },
+        ...state.investmentPayments.filter((payment) => payment.investmentId === investment.id).map((payment) => ({ type: "delete" as const, col: "investmentPayments", id: payment.id })),
+      ]);
+    },
+    async saveInvestmentPayment(rec: New<InvestmentPayment>) {
+      const investment = state.investments.find((item) => item.id === rec.investmentId);
+      if (!investment) throw new Error("This investment no longer exists. Reload and try again.");
+      const payment = withId(rec);
+      validateInvestmentPayment(payment, investment);
+      const repaidAmount = Math.round((investment.repaidAmount + payment.amount) * 100) / 100;
+      const repaidAt = payment.date > investment.repaidAt ? payment.date : investment.repaidAt;
+      await backend.commit([
+        { type: "set", col: "investmentPayments", id: payment.id, data: payment },
+        { type: "set", col: "investments", id: investment.id, data: { ...investment, repaidAmount, repaidAt } },
+      ]);
     },
     async savePart(rec: New<Part>) {
       const data = withId(rec);
@@ -206,6 +229,27 @@ function createActions(backend: Backend, state: State) {
       await backend.commit([{ type: "set", col: "meta", id: "settings", data: { ...settings } }]);
     },
     async importRecords(col: CollectionName, docs: DocData[]) {
+      if (col === "investmentPayments") {
+        const totals = new Map<string, number>();
+        const payments = docs.map((doc) => {
+          const payment = normalize.investmentPayments(doc);
+          const investment = state.investments.find((item) => item.id === payment.investmentId);
+          if (!investment) throw new Error(`Investment ${payment.investmentId} was not found.`);
+          const total = (totals.get(investment.id) ?? investment.repaidAmount) + payment.amount;
+          validateInvestmentPayment(payment, { ...investment, repaidAmount: totals.get(investment.id) ?? investment.repaidAmount });
+          if (total > investment.promisedReturn + 0.001) throw new Error(`Imported payments exceed ${investment.investor}'s promised return.`);
+          totals.set(investment.id, total);
+          return { payment, investment };
+        });
+        const ops: Op[] = payments.map(({ payment }) => ({ type: "set", col, id: backend.newId(), data: { ...payment } }));
+        for (const [investmentId, repaidAmount] of totals) {
+          const investment = state.investments.find((item) => item.id === investmentId)!;
+          const repaidAt = payments.filter((entry) => entry.investment.id === investmentId).reduce((latest, entry) => entry.payment.date > latest ? entry.payment.date : latest, investment.repaidAt);
+          ops.push({ type: "set", col: "investments", id: investmentId, data: { ...investment, repaidAmount, repaidAt } });
+        }
+        await backend.commit(ops);
+        return;
+      }
       if (col === "investments") {
         docs = docs.map((doc) => {
           const investment = normalize.investments(doc);

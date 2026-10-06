@@ -70,6 +70,12 @@ export const csvFields: Record<CollectionName, FieldDef[]> = {
     { key: "repaidAt", type: "date" },
     { key: "notes", type: "string" },
   ],
+  investmentPayments: [
+    { key: "investmentId", type: "string", required: true },
+    { key: "date", type: "date", required: true },
+    { key: "amount", type: "number", required: true },
+    { key: "note", type: "string" },
+  ],
 };
 
 export function exportCsv(col: CollectionName, rows: object[]) {

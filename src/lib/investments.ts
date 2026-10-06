@@ -1,5 +1,5 @@
 import { today } from "./format";
-import type { Investment } from "./types";
+import type { Investment, InvestmentPayment } from "./types";
 
 export const INVESTMENT_STATUSES = ["Open", "Overdue", "Repaid"] as const;
 export type InvestmentStatus = (typeof INVESTMENT_STATUSES)[number];
@@ -19,4 +19,12 @@ export function validateInvestment(data: Omit<Investment, "id">) {
   const isDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
   if (!isDate(data.receivedAt) || !isDate(data.dueAt) || data.dueAt < data.receivedAt) throw new Error("The deadline must be on or after the received date.");
   if (data.repaidAmount > 0 && (!isDate(data.repaidAt) || data.repaidAt < data.receivedAt)) throw new Error("Enter a repayment date on or after the received date.");
+}
+
+export function validateInvestmentPayment(payment: Omit<InvestmentPayment, "id">, investment: Investment) {
+  const isDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+  if (!payment.investmentId || payment.investmentId !== investment.id) throw new Error("Choose a valid investment for this payment.");
+  if (!Number.isFinite(payment.amount) || payment.amount <= 0 || payment.amount > investment.promisedReturn - investment.repaidAmount + 0.001) throw new Error("Payment must be greater than zero and cannot exceed the outstanding balance.");
+  if (!isDate(payment.date) || payment.date < investment.receivedAt) throw new Error("Enter a valid payment date on or after the investment date.");
+  if (payment.note.length > 500) throw new Error("Payment notes must be 500 characters or fewer.");
 }

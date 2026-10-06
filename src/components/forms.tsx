@@ -7,7 +7,7 @@ import { PartsEditor, fromDraftLines, toDraftLines } from "./PartsEditor";
 import { useFeedback } from "./feedback";
 import { useData } from "../data/store";
 import { partsCost } from "../lib/calc";
-import { cx, fmt, num, today } from "../lib/format";
+import { cx, fmt, fmtDate, num, today } from "../lib/format";
 import { STORAGE_OPTIONS, canonicalModel, modelKey, modelSuggestions } from "../lib/models";
 import {
   CONDITIONS,
@@ -18,6 +18,7 @@ import {
   type Device,
   type Expense,
   type Investment,
+  type InvestmentPayment,
   type Part,
   type Repair,
 } from "../lib/types";
@@ -358,7 +359,10 @@ export function ExpenseForm({ expense, onClose }: { expense?: Expense; onClose()
 
 export function InvestmentForm({ investment, onClose }: { investment?: Investment; onClose(): void }) {
   const data = useData();
+  const currentInvestment = investment ? data.investments.find((item) => item.id === investment.id) ?? investment : undefined;
   const { run, confirm } = useFeedback();
+  const [paymentDraft, setPaymentDraft] = useState({ amount: "", date: today(), note: "" });
+  const [savingPayment, setSavingPayment] = useState(false);
   const [draft, set] = useDraft({
     investor: investment?.investor ?? "",
     contact: investment?.contact ?? "",
@@ -366,8 +370,6 @@ export function InvestmentForm({ investment, onClose }: { investment?: Investmen
     receivedAt: investment?.receivedAt ?? today(),
     promisedReturn: str(investment?.promisedReturn),
     dueAt: investment?.dueAt ?? "",
-    repaidAmount: str(investment?.repaidAmount ?? 0),
-    repaidAt: investment?.repaidAt ?? "",
     notes: investment?.notes ?? "",
   });
   const [saving, setSaving] = useState(false);
@@ -381,18 +383,37 @@ export function InvestmentForm({ investment, onClose }: { investment?: Investmen
       contact: draft.contact.trim(),
       amount: Number(draft.amount),
       promisedReturn: Number(draft.promisedReturn),
-      repaidAmount: Number(draft.repaidAmount),
-      repaidAt: num(draft.repaidAmount) > 0 ? draft.repaidAt : "",
+      repaidAmount: currentInvestment?.repaidAmount ?? 0,
+      repaidAt: currentInvestment?.repaidAt ?? "",
       notes: draft.notes.trim(),
     }), investment ? "Investment updated" : "Investment added");
     setSaving(false);
     if (ok) onClose();
   };
-  const onDelete = investment && (async () => {
+  const onDelete = currentInvestment && (async () => {
     if (await confirm({ title: "Delete investment?", text: "The investment and its repayment details will be permanently removed.", confirmLabel: "Delete", danger: true })) {
-      if (await run(() => data.deleteInvestment(investment), "Investment deleted")) onClose();
+      if (await run(() => data.deleteInvestment(currentInvestment), "Investment deleted")) onClose();
     }
   });
+  const payments = data.investmentPayments.filter((payment) => payment.investmentId === currentInvestment?.id).sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  const recordedAmount = payments.reduce((total, payment) => total + payment.amount, 0);
+  const previousAmount = Math.max(0, (currentInvestment?.repaidAmount ?? 0) - recordedAmount);
+  const outstanding = Math.max(0, (currentInvestment?.promisedReturn ?? 0) - (currentInvestment?.repaidAmount ?? 0));
+  const recordPayment = async () => {
+    if (!currentInvestment) return;
+    setSavingPayment(true);
+    const ok = await run(() => data.saveInvestmentPayment({
+      investmentId: currentInvestment.id,
+      amount: num(paymentDraft.amount),
+      date: paymentDraft.date,
+      note: paymentDraft.note.trim(),
+    }), "Repayment recorded");
+    setSavingPayment(false);
+    if (ok) setPaymentDraft({ amount: "", date: today(), note: "" });
+  };
+  const history: (InvestmentPayment | { id: string; date: string; amount: number; note: string })[] = [...payments];
+  if (previousAmount > 0) history.push({ id: "legacy-payment", date: currentInvestment?.repaidAt ?? "", amount: previousAmount, note: "Previously recorded total" });
+  history.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
 
   return (
     <Modal open onClose={onClose} title={investment ? "Edit investment" : "Add investment"} footer={<FormFooter formId="investment-form" onClose={onClose} saving={saving} onDelete={onDelete} />}>
@@ -404,17 +425,31 @@ export function InvestmentForm({ investment, onClose }: { investment?: Investmen
           <Field label="Received date *">{(id) => <Input id={id} required type="date" value={draft.receivedAt} onChange={(event) => set("receivedAt", event.target.value)} />}</Field>
           <Field label="Total repayment promised (incl. principal) *">{(id) => <Input id={id} required type="number" inputMode="decimal" min={num(draft.amount) || 0.01} step="0.01" value={draft.promisedReturn} onChange={(event) => set("promisedReturn", event.target.value)} />}</Field>
           <Field label="Repayment deadline *">{(id) => <Input id={id} required type="date" min={draft.receivedAt} value={draft.dueAt} onChange={(event) => set("dueAt", event.target.value)} />}</Field>
-          <Field label="Total repaid">{(id) => <Input id={id} required type="number" inputMode="decimal" min="0" max={num(draft.promisedReturn)} step="0.01" value={draft.repaidAmount} onChange={(event) => {
-            set("repaidAmount", event.target.value);
-            if (num(event.target.value) > 0 && !draft.repaidAt) set("repaidAt", today());
-          }} />}</Field>
-          <Field label="Last repayment date">{(id) => <Input id={id} required={num(draft.repaidAmount) > 0} disabled={num(draft.repaidAmount) === 0} type="date" min={draft.receivedAt} value={draft.repaidAt} onChange={(event) => set("repaidAt", event.target.value)} />}</Field>
         </Grid>
         <Field label="Notes">{(id) => <Textarea id={id} maxLength={5000} value={draft.notes} onChange={(event) => set("notes", event.target.value)} />}</Field>
-        <SummaryBar items={[
-          ["Investor profit", fmt(num(draft.promisedReturn) - num(draft.amount))],
-          ["Outstanding", fmt(Math.max(0, num(draft.promisedReturn) - num(draft.repaidAmount)))],
-        ]} />
+        <SummaryBar items={[["Investor profit", fmt(num(draft.promisedReturn) - num(draft.amount))], ["Outstanding", fmt(outstanding)]]} />
+        {currentInvestment && (
+          <Section title="Repayment history">
+            {history.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-dashed border-zinc-300 text-left text-xs text-zinc-500 dark:border-zinc-800"><th className="py-2 font-normal">Date</th><th className="py-2 font-normal">Note</th><th className="py-2 text-right font-normal">Amount</th></tr></thead>
+                  <tbody className="divide-y divide-dashed divide-zinc-200 dark:divide-zinc-800">
+                    {history.map((payment) => <tr key={payment.id}><td className="py-2 pr-3 whitespace-nowrap text-zinc-500">{fmtDate(payment.date)}</td><td className="py-2 pr-3">{payment.note || "Repayment"}</td><td className="py-2 text-right font-mono tabular">{fmt(payment.amount)}</td></tr>)}
+                  </tbody>
+                </table>
+              </div>
+            ) : <p className="text-sm text-zinc-500">No repayments recorded.</p>}
+            {outstanding > 0 && (
+              <div className="grid grid-cols-1 items-end gap-3 border-t border-dashed border-zinc-300 pt-3 sm:grid-cols-[1fr_1fr_2fr_auto] dark:border-zinc-800">
+                <Field label="Payment amount">{(id) => <Input id={id} type="number" inputMode="decimal" min="0.01" max={outstanding} step="0.01" value={paymentDraft.amount} onChange={(event) => setPaymentDraft((value) => ({ ...value, amount: event.target.value }))} />}</Field>
+                <Field label="Payment date">{(id) => <Input id={id} required type="date" min={currentInvestment.receivedAt} value={paymentDraft.date} onChange={(event) => setPaymentDraft((value) => ({ ...value, date: event.target.value }))} />}</Field>
+                <Field label="Note">{(id) => <Input id={id} maxLength={500} placeholder="Transfer, cash..." value={paymentDraft.note} onChange={(event) => setPaymentDraft((value) => ({ ...value, note: event.target.value }))} />}</Field>
+                <Button disabled={savingPayment || num(paymentDraft.amount) <= 0 || num(paymentDraft.amount) > outstanding || !paymentDraft.date} onClick={() => void recordPayment()}>{savingPayment ? "Saving..." : "Record payment"}</Button>
+              </div>
+            )}
+          </Section>
+        )}
       </form>
     </Modal>
   );

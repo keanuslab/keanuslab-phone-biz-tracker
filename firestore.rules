@@ -89,6 +89,19 @@ service cloud.firestore {
         && (d.repaidAmount == 0 || (isDate(d, 'repaidAt') && d.repaidAt >= d.receivedAt));
     }
 
+    function validInvestmentPayment(d) {
+      let investment = get(/databases/$(database)/documents/users/$(request.auth.uid)/investments/$(d.investmentId)).data;
+      let investmentAfter = getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/investments/$(d.investmentId)).data;
+      return d.keys().hasOnly(['investmentId', 'date', 'amount', 'note'])
+        && reqStr(d, 'investmentId', 200) && exists(/databases/$(database)/documents/users/$(request.auth.uid)/investments/$(d.investmentId))
+        && isDate(d, 'date') && d.date >= investment.receivedAt
+        && reqMoney(d, 'amount') && d.amount > 0
+        && optStr(d, 'note', 500)
+        && investmentAfter.repaidAmount >= investment.repaidAmount + d.amount
+        && investmentAfter.repaidAmount <= investmentAfter.promisedReturn
+        && investmentAfter.repaidAt >= d.date;
+    }
+
     // qtyOnHand may go negative when more parts are used than recorded in stock.
     function validPart(d) {
       return d.keys().hasOnly(['name', 'category', 'compatible', 'qtyOnHand', 'unitCost', 'lowStock'])
@@ -121,6 +134,11 @@ service cloud.firestore {
       match /investments/{id} {
         allow read, delete: if isOwner(uid);
         allow create, update: if isOwner(uid) && validInvestment(request.resource.data);
+      }
+      match /investmentPayments/{id} {
+        allow read, delete: if isOwner(uid);
+        allow create: if isOwner(uid) && validInvestmentPayment(request.resource.data);
+        allow update: if false;
       }
       match /parts/{id} {
         allow read, delete: if isOwner(uid);

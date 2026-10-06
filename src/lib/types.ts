@@ -83,6 +83,14 @@ export interface Investment {
   notes: string;
 }
 
+export interface InvestmentPayment {
+  id: string;
+  investmentId: string;
+  date: string;
+  amount: number;
+  note: string;
+}
+
 export type GoalMetric = "net" | "revenue" | "soldCount" | "repairCount";
 
 export interface Goal {
@@ -102,9 +110,10 @@ export interface Collections {
   expenses: Expense;
   parts: Part;
   investments: Investment;
+  investmentPayments: InvestmentPayment;
 }
 
 export type CollectionName = keyof Collections;
-export const COLLECTIONS: CollectionName[] = ["devices", "repairs", "expenses", "parts", "investments"];
+export const COLLECTIONS: CollectionName[] = ["devices", "repairs", "expenses", "parts", "investments", "investmentPayments"];
 
 export const DEFAULT_SETTINGS: Settings = { businessName: "", currency: "EUR", goals: [] };
