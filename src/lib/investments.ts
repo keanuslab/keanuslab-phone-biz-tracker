@@ -28,3 +28,10 @@ export function validateInvestmentPayment(payment: Omit<InvestmentPayment, "id">
   if (!isDate(payment.date) || payment.date < investment.receivedAt) throw new Error("Enter a valid payment date on or after the investment date.");
   if (payment.note.length > 500) throw new Error("Payment notes must be 500 characters or fewer.");
 }
+
+export function isInvestmentDueSoon(investment: Investment, date = today(), days = 30) {
+  if (investmentOutstanding(investment) === 0) return false;
+  const lastDate = new Date(`${date}T00:00:00Z`);
+  lastDate.setUTCDate(lastDate.getUTCDate() + days);
+  return investment.dueAt >= date && investment.dueAt <= lastDate.toISOString().slice(0, 10);
+}

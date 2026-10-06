@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, Clock, PackageX, Wrench } from "lucide-react";
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, Clock, HandCoins, PackageX, Wrench } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAuth } from "../data/auth";
 import { useData } from "../data/store";
@@ -20,9 +20,10 @@ import {
   topModels,
   type PeriodKind,
 } from "../lib/calc";
-import { cx, fmt, fmtCompact, fmtPct } from "../lib/format";
+import { cx, daysBetween, fmt, fmtCompact, fmtPct, today } from "../lib/format";
 import { useTheme } from "../lib/theme";
 import { groupLabel } from "../lib/models";
+import { investmentOutstanding, investmentStatus, isInvestmentDueSoon } from "../lib/investments";
 
 const palette = (dark: boolean) => {
   const ink = dark ? "#f2f2f2" : "#1a1a1a";
@@ -129,6 +130,21 @@ export function Dashboard() {
   const pickup = data.repairs.filter((r) => r.status === "Done");
   const waitingParts = data.repairs.filter((r) => r.status === "Waiting parts");
   const openRepairs = data.repairs.filter((r) => r.status !== "Done" && r.status !== "Collected");
+  const currentDate = today();
+  const investmentAlerts = data.investments
+    .filter((investment) => investmentStatus(investment, currentDate) === "Overdue" || isInvestmentDueSoon(investment, currentDate))
+    .sort((a, b) => (investmentStatus(a, currentDate) === "Overdue" ? 0 : 1) - (investmentStatus(b, currentDate) === "Overdue" ? 0 : 1) || a.dueAt.localeCompare(b.dueAt))
+    .map((investment) => {
+      const overdue = investmentStatus(investment, currentDate) === "Overdue";
+      const days = daysBetween(currentDate, investment.dueAt);
+      const due = days === 0 ? "due today" : `due in ${days} day${days === 1 ? "" : "s"}`;
+      return {
+        icon: <HandCoins />,
+        text: `${investment.investor} — ${fmt(investmentOutstanding(investment))} ${overdue ? "overdue" : due}`,
+        to: "/investments",
+        tone: overdue ? "text-signal" : "text-amber-500",
+      };
+    });
   const avgDays = avgDaysToSell(data.devices);
   const hasPrev = kind !== "all";
 
@@ -143,6 +159,7 @@ export function Dashboard() {
   const grid = theme === "dark" ? "#1f1f1f" : "#ececec";
 
   const attention: { icon: ReactNode; text: string; to: string; tone: string }[] = [
+    ...investmentAlerts,
     ...low.map((p) => ({ icon: <PackageX />, text: `${p.name} — ${p.qtyOnHand} left`, to: "/parts", tone: "text-amber-500" })),
     ...pickup.map((r) => ({ icon: <Wrench />, text: `${r.customer}'s ${r.device} is ready for pickup`, to: "/repairs", tone: "text-emerald-500" })),
     ...waitingParts.map((r) => ({ icon: <Clock />, text: `${r.device} for ${r.customer} is waiting on parts`, to: "/repairs", tone: "text-violet-500" })),
