@@ -94,3 +94,27 @@
     display: none;
   }
 }
+
+@media print {
+  @page {
+    margin: 16mm;
+  }
+  body.printing-statement * {
+    visibility: hidden !important;
+  }
+  body.printing-statement .statement-print-area,
+  body.printing-statement .statement-print-area * {
+    visibility: visible !important;
+  }
+  body.printing-statement .statement-print-area {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    overflow: visible;
+    background: white;
+    color: black;
+  }
+  body.printing-statement .statement-no-print {
+    display: none !important;
+  }
+}
