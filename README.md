@@ -14,6 +14,7 @@ Built with React and Firebase, deployed on Firebase Hosting. The design is inspi
 - **Expenses**: by category and month. Parts purchases are treated as inventory, so they're only counted once, when the part is used.
 - **Investments**: investor funding, total repayment promised (including principal), deadlines, partial repayment history, overdue reminders, and printable investor statements. Investor funding and repayments are tracked separately from operating profit.
 - **Dashboard**: net profit, revenue, flip vs. repair profit, comparison with the previous period, 12-month charts, best models to flip, most used parts, and a "needs attention" list.
+- **Investor cash flow**: period-based funding received, repayments paid, net financing cash flow, and outstanding liabilities, kept separate from revenue and profit.
 - **Monthly goals**: set targets (net profit, revenue, devices sold, repairs) and see when you're expected to hit them, based on your last 30 days.
 - **willhaben import**: paste a willhaben.at ad link and text to pre-fill a new device (model, storage, colour, condition, price, battery health).
 - **Model catalogue**: typeahead with current iPhone, Samsung, Pixel, Xiaomi and OnePlus models, so names stay consistent and stats group correctly.

@@ -11,6 +11,7 @@ import {
   avgDaysToSell,
   daysInStock,
   deviceCost,
+  inRange,
   isLowStock,
   monthlySeries,
   partsUsage,
@@ -131,6 +132,18 @@ export function Dashboard() {
   const waitingParts = data.repairs.filter((r) => r.status === "Waiting parts");
   const openRepairs = data.repairs.filter((r) => r.status !== "Done" && r.status !== "Collected");
   const currentDate = today();
+  const recordedPayments = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const payment of data.investmentPayments) totals.set(payment.investmentId, (totals.get(payment.investmentId) ?? 0) + payment.amount);
+    return totals;
+  }, [data.investmentPayments]);
+  const investmentCashFlow = useMemo(() => {
+    const received = data.investments.filter((investment) => inRange(investment.receivedAt, range)).reduce((sum, investment) => sum + investment.amount, 0);
+    const repaid = data.investmentPayments.filter((payment) => inRange(payment.date, range)).reduce((sum, payment) => sum + payment.amount, 0);
+    const outstanding = data.investments.reduce((sum, investment) => sum + investmentOutstanding(investment), 0);
+    const legacyRepaid = data.investments.reduce((sum, investment) => sum + Math.max(0, investment.repaidAmount - (recordedPayments.get(investment.id) ?? 0)), 0);
+    return { received, repaid, net: received - repaid, outstanding, legacyRepaid };
+  }, [data.investments, data.investmentPayments, range, recordedPayments]);
   const investmentAlerts = data.investments
     .filter((investment) => investmentStatus(investment, currentDate) === "Overdue" || isInvestmentDueSoon(investment, currentDate))
     .sort((a, b) => (investmentStatus(a, currentDate) === "Overdue" ? 0 : 1) - (investmentStatus(b, currentDate) === "Overdue" ? 0 : 1) || a.dueAt.localeCompare(b.dueAt))
@@ -213,6 +226,22 @@ export function Dashboard() {
         <Stat label="Open repairs" value={openRepairs.length} sub={`${pickup.length} ready for pickup`} />
         <Stat label="Avg days to sell" value={avgDays ?? "—"} sub="All time" />
       </div>
+
+      <section className="mt-4 border-y border-dashed border-zinc-300 py-5 dark:border-zinc-800">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="label-mono font-bold">Investor cash flow</h2>
+          <p className="text-xs text-zinc-500">{range.label} · Financing only, excluded from revenue and net profit</p>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {([
+            ["Capital received", investmentCashFlow.received],
+            ["Repayments paid", investmentCashFlow.repaid],
+            ["Net financing cash flow", investmentCashFlow.net],
+            ["Outstanding liability", investmentCashFlow.outstanding],
+          ] as const).map(([label, amount]) => <Stat key={label} label={label} value={fmt(amount)} />)}
+        </div>
+        {investmentCashFlow.legacyRepaid > 0 && <p className="mt-3 text-xs text-zinc-500">{fmt(investmentCashFlow.legacyRepaid)} of older repayments has no itemized date and is excluded from period cash flow.</p>}
+      </section>
 
       <Goals />
 
